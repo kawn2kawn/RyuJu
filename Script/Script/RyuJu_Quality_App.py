@@ -27,7 +27,11 @@ def ensure_data_dir():
         except Exception as e:
             st.error(f"【システムエラー】フォルダ作成に失敗しました: {e}")
 
-def save_to_csv(fact_text, machine_type):
+def save_to_csv(fact_text):
+    """
+    入力された事実をCSVに保存する。
+    設備選択は廃止されたため、引数から削除。
+    """
     ensure_data_dir()
     now = datetime.datetime.now()
     case_id = str(uuid.uuid4())[:8]
@@ -35,7 +39,6 @@ def save_to_csv(fact_text, machine_type):
     new_data = {
         "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
         "case_id": case_id,
-        "machine_type": machine_type,
         "raw_facts": fact_text
     }
     
@@ -51,11 +54,9 @@ def save_to_csv(fact_text, machine_type):
         st.error(f"【ログ保存エラー】CSVへの書き込みに失敗しました: {e}")
         return False
 
-def generate_prompt_template(facts, machine_type):
+def generate_prompt_template(facts):
     """
-    【融合版】
-    入力はシンプルだが、出力指示（プロンプト）は
-    「帰納的推論」と「ツリー構造のなぜなぜ分析」を行う強力なバージョン。
+    設備名の入力を廃止し、純粋に事実テキストから分析するプロンプト構成に変更。
     """
     prompt = f"""
 # 不具合原因分析要請
@@ -64,7 +65,6 @@ def generate_prompt_template(facts, machine_type):
 提供された事実に基づき、事実と推測を分け、論理的な「なぜなぜ分析」を行って対策を立案してください。
 
 ## 1. 発生事象と事実（現場からのインプット）
-**【対象ライン・設備】** {machine_type}
 **【事実・現象詳細】**
 {facts}
 
@@ -105,7 +105,7 @@ def generate_prompt_template(facts, machine_type):
 # メイン処理 (UI構築)
 # ==========================================
 def main():
-    # サイドバー：入力インターフェース（龍樹のシンプルなUIを維持）
+    # サイドバー：入力インターフェース
     with st.sidebar:
         st.title("🔍 品質不具合情報入力")
         
@@ -127,22 +127,28 @@ def main():
 
     # メイン画面
     st.title("🔍 品質不具合対策論理分析ツール「龍樹 - Quality」")
-    st.markdown("サイドバーの事実＋補足情報を元に、強力な分析プロンプトを生成します。")
+    st.markdown("サイドバーの基本情報に加え、以下の欄に詳細な事実や気づきを入力してください。")
 
-    col1, col2 = st.columns([1, 2])
-    
-    with col1:
-        machine_type = st.selectbox(
-            "対象設備・ライン",
-            ["Aライン", "Bライン", "組立工程", "検査工程", "その他"],
-            help="品質データの統計を取るために選択してください"
-        )
-    
-    # 自由記述エリア：ここが旧ツールの「4Mチェックリスト」の代わりになります
+    # プレースホルダー用の例文（ご指定の内容）
+    placeholder_text = """例：
+・3R03Aロットの10個全てで異品を梱包していた。
+・顧客へ5個の異品が流出した。(4/1_3個、4/11_2個)
+・E16-13490-01（10個）とE16-18490-01（16個）の2品番が1日違いで計画されていた。
+　3/3 ：E16-13490-01 　　 3/4 ：E16-18490-01
+・指示日は違うが、2種類の部品がラインサイドに払出されていた。
+・指図書のバーコードを読み取り、タブレットに製品画像を表示している。
+　日産向けではタブレットによる製品表示はしていない（今回の異品）
+・品質留意点として【類似品があるため混同なきこと】とあるが、具体的な表記ではなかった。
+・作業者聞き取りから、日常的に部品の過不足が起きているので員数管理はしていた。
+・10個の生産計画に対し異品の16個を使用したが、部品の過不足が日頃から散発しており
+　部品が余ったが、異常と思わなかった。
+・チェックシートに使用部品の使用数に対して不足があった時には、数量を記録するようになっているが記録されていなかった。"""
+
+    # 自由記述エリア：高さを450pxに拡張
     extra_facts = st.text_area(
-        "補足の事実・気づき（4Mの観点で記述すると精度が上がります）",
-        height=200,
-        placeholder="例：\n・治具の当たり面に磨耗が見られた（Machine）\n・前日から材料のロットが変更になっていた（Material）\n・標準書には「目視確認」としか書かれていなかった（Method）\n・作業者はその日、急ぎの指示を受けていた（Man）",
+        "詳細な事実・調査結果（4Mの観点で記述すると精度が上がります）",
+        height=450,
+        placeholder=placeholder_text,
         help="箇条書きでOKです。AIがここから4M要素を自動抽出します。"
     )
 
@@ -158,18 +164,18 @@ def main():
 ・場所: {input_where}
 ・担当: {input_who}
 
-【補足・4Mに関する気づき】
+【詳細な事実・調査結果・4Mに関する気づき】
 {extra_facts}
 """
         
         if not input_what or not input_how:
             st.warning("⚠️ サイドバーの「何を」「どうした」は必須入力項目です。")
         else:
-            if save_to_csv(combined_facts, machine_type):
+            # 設備情報を削除したため、引数から除外
+            if save_to_csv(combined_facts):
                 st.success("✅ 品質ログを記録しました。")
             
-            # 引数に machine_type を追加してコンテキストを強化
-            generated_text = generate_prompt_template(combined_facts, machine_type)
+            generated_text = generate_prompt_template(combined_facts)
             
             st.markdown("---")
             st.subheader("🤖 AIへの指令書（ツリー構造分析版）")
