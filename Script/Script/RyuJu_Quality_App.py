@@ -13,6 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# 現場でのデータ管理用フォルダとファイル名
 DATA_DIR = "data"
 LOG_FILE = os.path.join(DATA_DIR, "quality_fact_log.csv")
 
@@ -21,6 +22,10 @@ LOG_FILE = os.path.join(DATA_DIR, "quality_fact_log.csv")
 # ==========================================
 
 def ensure_data_dir():
+    """
+    データ保存用のフォルダが存在するか確認し、なければ作成する。
+    現場のPC環境で権限エラー等が発生した場合に備え、例外処理を入れる。
+    """
     if not os.path.exists(DATA_DIR):
         try:
             os.makedirs(DATA_DIR)
@@ -30,10 +35,11 @@ def ensure_data_dir():
 def save_to_csv(fact_text):
     """
     入力された事実をCSVに保存する。
+    将来の統計分析（AI活用）を見据え、タイムスタンプと一意のIDを付与する。
     """
     ensure_data_dir()
     now = datetime.datetime.now()
-    case_id = str(uuid.uuid4())[:8]
+    case_id = str(uuid.uuid4())[:8]  # 追跡用の簡易ID
     
     new_data = {
         "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
@@ -45,19 +51,20 @@ def save_to_csv(fact_text):
     
     try:
         if not os.path.exists(LOG_FILE):
+            # 新規作成時はヘッダーあり。Excelでの文字化け防止のためutf-8-sigを採用。
             df.to_csv(LOG_FILE, index=False, encoding="utf-8-sig")
         else:
+            # 2回目以降は追記（append）モード。
             df.to_csv(LOG_FILE, mode='a', header=False, index=False, encoding="utf-8-sig")
         return True
     except Exception as e:
-        st.error(f"【ログ保存エラー】CSVへの書き込みに失敗しました: {e}")
+        st.error(f"【ログ保存エラー】CSVへの書き込みに失敗しました。ファイルが開かれていないか確認してください: {e}")
         return False
 
 def generate_prompt_template(facts):
     """
-    【修正版】
-    - 発生/流出を明確に分離
-    - なぜなぜ分析の末端IDと対策を紐づける指示を追加
+    現場の事実に基づき、AI（ChatGPT/Gemini等）へ渡すための最強の分析指示書を作成する。
+    発生と流出を分離し、IDによる紐づけを強制する。
     """
     prompt = f"""
 # 不具合原因分析要請
@@ -143,25 +150,20 @@ def main():
         st.header("💡 入力ヒント")
         st.info("事実を出来るだけ多く入力するだけで、AIが4Mに分類し、ツリー構造で深掘り分析を行います。")
 
-    # メイン画面
-    # ---------------------------------------------------------
-    # 画像（ロゴ）を右上に配置するためのレイアウト変更
-    # ---------------------------------------------------------
-    col_title, col_logo = st.columns([5, 1]) # 左:タイトル(広め) / 右:ロゴ(狭め)
+    # メイン画面のレイアウト
+    col_title, col_logo = st.columns([5, 1])
 
     with col_title:
         st.title("🔍 品質不具合対策論理分析支援ツール「龍樹 - Quality」")
 
     with col_logo:
-        # 画像ファイルが存在する場合のみ表示（エラー回避）
+        # ロゴ画像があれば表示。ファイル名の間違いや欠落で止まらないようチェック。
         if os.path.exists("header_logo.png"):
-            # use_container_width=True でカラムの幅に合わせて表示
             st.image("header_logo.png", use_container_width=True)
     
-    # ↓↓↓ 【修正部分】ここを #### で見出し化し、大きく表示するように変更 ↓↓↓
     st.markdown("#### サイドバーの基本情報に加え、以下の欄に詳細な事実や気づきを入力してください。\n**客先や個人が特定されるような固有名詞は絶対に入力しないでください**")
 
-    # プレースホルダー用の例文
+    # プレースホルダー用の例文（三現主義に基づいた具体例）
     placeholder_text = """例：
 ・3R03Aロットの10個全てで異品を梱包していた。
 ・顧客へ5個の異品が流出した。(4/1_3個、4/11_2個)
@@ -176,20 +178,18 @@ def main():
 　部品が余ったが、異常と思わなかった。
 ・チェックシートに使用部品の使用数に対して不足があった時には、数量を記録するようになっているが記録されていなかった。"""
 
-    # 自由記述エリア
-    # ラベル文字を大きくするためにst.markdownでヘッダーとして表示し、
-    # text_area自体のラベルは非表示(collapsed)にする手法をとります
     st.markdown("### 詳細な事実・調査結果（三現主義で多くの事実を収集し記述してください/4Mの観点で記述すると精度が上がります）")
     
     extra_facts = st.text_area(
-        label="詳細な事実・調査結果", # 内部的なラベル（表示はされない）
-        label_visibility="collapsed", # ラベルのスペースを隠す
+        label="詳細な事実・調査結果",
+        label_visibility="collapsed",
         height=450,
         placeholder=placeholder_text,
         help="箇条書きでOKです。AIがここから4M要素を自動抽出します。"
     )
 
     if st.button("論理分析プロンプトを生成する", type="primary"):
+        # 入力データを構造化してまとめる
         combined_facts = f"""
 【客先情報での事実】
 ・対象: {input_what}
@@ -208,25 +208,34 @@ def main():
         if not input_what or not input_how:
             st.warning("⚠️ サイドバーの「何を」「どうした」は必須入力項目です。")
         else:
+            # CSVに保存を実行
             if save_to_csv(combined_facts):
                 st.success("✅ 品質ログを記録しました。")
             
+            # AIへの指令書を作成
             generated_text = generate_prompt_template(combined_facts)
             
             st.markdown("---")
             st.subheader("🤖 AIへの指令書（ツリー構造分析版）")
-            st.info("右上のコピーボタンを押して、ChatGPTやGemini等に貼り付けてください。")
             
-            # ワンクリックでコピー可能なコードブロック
-            st.code(generated_text, language="markdown")
+            # 修正ポイント：コピーボタン付きのst.codeを廃止し、確実に全選択できるエリアを作成
+            st.info("下のテキストエリア内を全選択（Ctrl+A）してコピーしてください。")
+            
+            # テキストエリアによる出力（コピーボタンなし・確実な全選択用）
+            st.text_area(
+                label="プロンプト出力エリア",
+                value=generated_text,
+                height=500,
+                label_visibility="collapsed"
+            )
             
             st.markdown("""
             **このプロンプトの5つの特徴:**
-            1. **4M自動抽出:** 乱雑なメモから、人・設備・材料・方法の要素をAIが自動で整理します。
-            2. **メカニズム推定:** いきなり分析せず、まずは「何が起きたか」のシナリオを物理的に組み立てます。
-            3. **ツリー構造 & ID付与:** 原因を一本道にせず分岐させ、末端にID（発-1等）を振って管理します。
-            4. **深掘りの適正化:** 「なぜ」を最低3回繰り返させ、浅い分析で終わらせません。
-            5. **対策の紐づけ & 区分:** どの原因(ID)への対策かを明記し、「暫定」と「恒久」を厳密に分けます。
+            1. **4M自動抽出:** 乱雑なメモから要素をAIが自動整理。
+            2. **メカニズム推定:** 物理的な不具合シナリオを構築。
+            3. **ツリー構造 & ID付与:** 原因の分岐を明確化し、IDで管理。
+            4. **深掘りの適正化:** 「なぜ」を繰り返させ、真因を追及。
+            5. **対策の紐づけ & 区分:** IDを用いた確実な対策立案と、暫定/恒久の峻別。
             """)
 
 if __name__ == "__main__":
