@@ -158,7 +158,8 @@ def main():
             # use_container_width=True でカラムの幅に合わせて表示
             st.image("header_logo.png", use_container_width=True)
     
-    st.markdown("サイドバーの基本情報に加え、以下の欄に詳細な事実や気づきを入力してください。")
+    # ↓↓↓ 【修正部分】ここを #### で見出し化し、大きく表示するように変更 ↓↓↓
+    st.markdown("#### サイドバーの基本情報に加え、以下の欄に詳細な事実や気づきを入力してください。\n**客先や個人が特定されるような固有名詞は絶対に入力しないでください**")
 
     # プレースホルダー用の例文
     placeholder_text = """例：
