@@ -154,7 +154,7 @@ def main():
     col_title, col_logo = st.columns([5, 1])
 
     with col_title:
-        st.title("🔍 品質不具合対策論理分析支援ツール「龍樹 - Quality」")
+        st.title("🔍 品質不具合対策論理分析支援ツール「龍樹 RyuJu -Quality-」")
 
     with col_logo:
         # ロゴ画像があれば表示。ファイル名の間違いや欠落で止まらないようチェック。
