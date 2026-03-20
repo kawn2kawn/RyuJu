@@ -74,8 +74,13 @@ def main():
             st.session_state["generated_prompt"] = prompt
 
     if "generated_prompt" in st.session_state:
-        st.code(st.session_state["generated_prompt"], language=None)
-        st.info("上記をコピーして、ChatGPT（ブラウザ）に貼り付けて実行してください。")
+        st.text_area(
+            "生成されたプロンプト",
+            value=st.session_state["generated_prompt"],
+            height=300,
+            key="prompt_display"
+        )
+        st.info("⬆️ 上のテキストエリア内をクリックして全選択（Ctrl+A）→ コピー（Ctrl+C）し、ChatGPTに貼り付けて実行してください。")
 
     # ----------------------------------------
     # 区画3：LLM出力の取り込み
