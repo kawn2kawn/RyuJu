@@ -1,10 +1,10 @@
 import json
+import pandas as pd
 import streamlit as st
 from pathlib import Path
 
-from database import initialize_db, insert_records
-from prompt_builder import build_prompt
-from parser import parse_llm_output, to_display_records, DISPLAY_NAMES
+from database import initialize_db, fetch_records, update_record, approve_records
+from excel_output import build_excel, make_filename
 
 MASTER_PATH = Path(__file__).parent / "master_data.json"
 
@@ -12,8 +12,41 @@ def load_master() -> dict:
     with open(MASTER_PATH, encoding="utf-8") as f:
         return json.load(f)
 
+def check_password():
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
+
+    if st.session_state.logged_in:
+        return True
+
+    st.markdown("## 🔒 龍樹（P-FMEA）ログイン")
+    st.info("社員番号とパスワードを入力してください。")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        input_emp_id = st.text_input("社員番号（数字4桁）", max_chars=4, placeholder="例：1234")
+    with col2:
+        input_password = st.text_input("パスワード", type="password")
+
+    if st.button("ログイン", type="primary"):
+        CORRECT_PASSWORD = "wako0001"
+        if not input_emp_id.isdigit() or len(input_emp_id) != 4:
+            st.error("❌ 社員番号は「数字4桁」で入力してください。")
+            return False
+        if input_password == CORRECT_PASSWORD:
+            st.session_state.logged_in = True
+            st.session_state.emp_id = input_emp_id
+            st.success("ログイン成功")
+            st.rerun()
+            return True
+        else:
+            st.error("❌ パスワードが違います。")
+            return False
+
+    return False
+
 def main():
-    st.set_page_config(page_title="龍樹（P-FMEA）洗い出し", layout="wide")
+    st.set_page_config(page_title="龍樹（P-FMEA）確認・出力", page_icon="🌳", layout="wide")
     initialize_db()
 
     st.title("龍樹（P-FMEA）洗い出しアプリ")
@@ -204,4 +237,5 @@ def main():
             st.rerun()
 
 if __name__ == "__main__":
-    main()
+    if check_password():
+        main()
