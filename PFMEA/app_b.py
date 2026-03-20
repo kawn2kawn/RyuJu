@@ -76,7 +76,9 @@ def main():
             "業種", ["（全て）"] + master["industries"]
         )
     with col2:
-        f_product = st.text_input("製品名（部分一致）")
+        f_product = st.selectbox(
+            "製品名", ["（全て）"] + master["products"]
+        )
     with col3:
         all_processes = (
             master["processes"]["段取"] + master["processes"]["成形"]
@@ -94,11 +96,12 @@ def main():
     if st.button("検索する", type="primary"):
         records = fetch_records(
             industry = None if f_industry == "（全て）" else f_industry,
-            product  = f_product.strip() or None,
+            product  = None if f_product == "（全て）" else f_product,
             process  = None if f_process == "（全て）" else f_process,
             status   = f_status,
             keyword  = f_keyword.strip() or None
         )
+        
         st.session_state["search_results"] = records
         st.session_state.pop("edited_df", None)
 
