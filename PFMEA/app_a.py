@@ -27,7 +27,19 @@ def main():
     col1, col2 = st.columns(2)
     with col1:
         industry = st.selectbox("業種", master["industries"])
-        product  = st.text_input("製品名")
+
+        product_selection = st.selectbox("製品名", master["products"])
+
+        if product_selection == "その他":
+            product = st.text_input(
+                "製品名を入力してください",
+                placeholder="例：吸気ダクト"
+            )
+            st.caption("⚠️ 客先品番は入力しないでください。")
+        else:
+            product = product_selection
+            st.caption("⚠️ 客先品番は入力しないでください。")
+
     with col2:
         category = st.selectbox("工程分類", master["process_categories"])
         process  = st.selectbox("工程名", master["processes"][category])
