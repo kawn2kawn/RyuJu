@@ -149,6 +149,26 @@ def main():
                 rpn = s * o * d
                 st.metric("RPN", rpn)
 
+                # 評価基準参照
+                criteria = master["evaluation_criteria"]
+                with st.expander("📋 評価基準を参照する"):
+                    tab1, tab2, tab3 = st.tabs(["厳しさ（S）", "発生頻度（O）", "検出度（D）"])
+                    with tab1:
+                        for c in criteria["厳しさ"]:
+                            selected = "　◀ 現在の選択" if c["rank"] == s else ""
+                            st.markdown(f"**{c['rank']}　{c['summary']}**{selected}")
+                            st.caption(c["detail"])
+                    with tab2:
+                        for c in criteria["発生頻度"]:
+                            selected = "　◀ 現在の選択" if c["rank"] == o else ""
+                            st.markdown(f"**{c['rank']}　{c['summary']}**{selected}")
+                            st.caption(c["detail"])
+                    with tab3:
+                        for c in criteria["検出度"]:
+                            selected = "　◀ 現在の選択" if c["rank"] == d else ""
+                            st.markdown(f"**{c['rank']}　{c['summary']}**{selected}")
+                            st.caption(c["detail"])
+
                 remarks = st.text_input("備考（任意）", key=f"rem_{i}")
 
                 scores.append({
